@@ -67,15 +67,24 @@ allows your real frontend, e.g. `FRONTEND_URL=https://denoiseai.netlify.app`.
 
 1. Push this repository to GitHub.
 2. Create a new **Web Service** pointing at the `backend/` directory.
-3. Build command: `pip install -r requirements.txt`
-4. Start command:
+3. **Python version:** TensorFlow 2.20 requires Python 3.9–3.12. Some
+   platforms (Render included) default to the newest available Python,
+   which is too new for TensorFlow and will fail the build with
+   `No matching distribution found for tensorflow`. `backend/runtime.txt`
+   pins this to `python-3.11.9` — most platforms (Render, Heroku) read it
+   automatically. If yours doesn't, set an environment variable instead:
+   ```
+   PYTHON_VERSION=3.11.9
+   ```
+4. Build command: `pip install -r requirements.txt`
+5. Start command:
    ```
    uvicorn main:app --host 0.0.0.0 --port $PORT
    ```
    (a `Procfile` with this exact command is already included for platforms
    that use one).
-5. Set the `FRONTEND_URL` environment variable to your Netlify URL.
-6. Once deployed, copy the backend's public URL and set it as `VITE_API_URL`
+6. Set the `FRONTEND_URL` environment variable to your Netlify URL.
+7. Once deployed, copy the backend's public URL and set it as `VITE_API_URL`
    in the Netlify frontend's environment variables.
 
 > **Note:** `denoising.h5` (~5–6 MB) ships inside `backend/model/`. Do **not**
