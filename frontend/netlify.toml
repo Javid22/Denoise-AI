@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Single-page app: send all routes to index.html so client-side smooth
+# scrolling / anchor navigation works correctly on refresh/deep links.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

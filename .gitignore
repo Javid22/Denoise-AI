@@ -1,0 +1,25 @@
+# Local Python venvs
+.venv/
+venv/
+
+# Training data & experiments — not needed for deployment
+files/
+model/*.npz
+model/*.keras
+model/sidd_denoiser.keras
+model/*.png
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Python
+backend/__pycache__/
+backend/*.pyc
+backend/.env
+
+# OS/editor cruft
+.DS_Store
+*.log
