@@ -232,12 +232,15 @@ def run_inference(image: Image.Image) -> Image.Image:
 # --------------------------------------------------------------------------
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 def root():
+    # GET and HEAD both supported: some hosting platforms' health checks
+    # (and uptime monitors) probe with HEAD, which FastAPI's default
+    # @app.get() does not answer, causing spurious "unhealthy" restarts.
     return {"status": "ok", "message": "DenoiseAI backend is running.", "docs": "/docs"}
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {
         "status": "ok" if model is not None else "degraded",
