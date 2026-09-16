@@ -26,34 +26,75 @@ export function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
 
-/**
- * Sends an image (File or Blob) to the /predict endpoint and returns an
- * object URL for the denoised PNG result.
- *
- * Throws an Error with a user-friendly message on failure — never leaks
- * raw stack traces to the caller.
- */
-export async function denoiseImage(fileOrBlob, filename = 'upload.png') {
+// Free-tier hosts (e.g. Render's free plan) spin the backend down after a
+// period of inactivity. The first request after that wakes it back up,
+// which can take 30-60+ seconds — during that window the platform's own
+// edge/proxy returns an error page with no CORS headers, which the browser
+// reports as a generic network failure rather than a real HTTP status.
+// We retry a few times with backoff so that a "cold start" is survived
+// automatically instead of failing the user's very first request.
+const COLD_START_RETRY_DELAYS_MS = [4000, 8000, 15000] // ~27s of retries
+const REQUEST_TIMEOUT_MS = 45_000
+
+async function postImage(fileOrBlob, filename) {
   const formData = new FormData()
   formData.append('file', fileOrBlob, filename)
 
-  let response
-  try {
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 60_000)
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-    response = await fetch(`${API_URL}/predict`, {
+  try {
+    return await fetch(`${API_URL}/predict`, {
       method: 'POST',
       body: formData,
       signal: controller.signal,
     })
-
+  } finally {
     clearTimeout(timeoutId)
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      throw new Error('The request took too long to respond. Please try again.')
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * Sends an image (File or Blob) to the /predict endpoint and returns an
+ * object URL for the denoised PNG result.
+ *
+ * Automatically retries through a backend "cold start" (see above).
+ * `onStatus` is an optional callback(message) used to keep the UI informed
+ * while a retry is in progress.
+ *
+ * Throws an Error with a user-friendly message on failure — never leaks
+ * raw stack traces to the caller.
+ */
+export async function denoiseImage(fileOrBlob, filename = 'upload.png', onStatus) {
+  let response
+  let lastNetworkError = null
+
+  for (let attempt = 0; attempt <= COLD_START_RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      response = await postImage(fileOrBlob, filename)
+      lastNetworkError = null
+      break
+    } catch (err) {
+      lastNetworkError = err
+      const isLastAttempt = attempt === COLD_START_RETRY_DELAYS_MS.length
+
+      if (err.name === 'AbortError') {
+        throw new Error('The request took too long to respond. Please try again.')
+      }
+      if (isLastAttempt) {
+        break
+      }
+      onStatus?.('Waking up the AI server... this can take up to a minute on the first request.')
+      await sleep(COLD_START_RETRY_DELAYS_MS[attempt])
     }
-    throw new Error('Unable to connect to the AI server. Please try again.')
+  }
+
+  if (lastNetworkError) {
+    throw new Error('Unable to connect to the AI server. Please try again in a moment.')
   }
 
   if (!response.ok) {

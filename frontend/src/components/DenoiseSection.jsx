@@ -11,6 +11,7 @@ export default function DenoiseSection() {
   const [resultUrl, setResultUrl] = useState(null)
   const [status, setStatus] = useState('idle') // idle | processing | done
   const [error, setError] = useState(null)
+  const [statusMessage, setStatusMessage] = useState(null)
 
   const previewUrlRef = useRef(null)
   const resultUrlRef = useRef(null)
@@ -52,9 +53,10 @@ export default function DenoiseSection() {
   const handleDenoise = async () => {
     if (!file) return
     setError(null)
+    setStatusMessage(null)
     setStatus('processing')
     try {
-      const url = await denoiseImage(file, file.name)
+      const url = await denoiseImage(file, file.name, setStatusMessage)
       if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current)
       resultUrlRef.current = url
       setResultUrl(url)
@@ -62,6 +64,8 @@ export default function DenoiseSection() {
     } catch (err) {
       setError(err.message || 'Something went wrong while processing the image.')
       setStatus('idle')
+    } finally {
+      setStatusMessage(null)
     }
   }
 
@@ -154,7 +158,7 @@ export default function DenoiseSection() {
           <div className="card fade-in" style={{ marginTop: 24 }}>
             <LoadingSpinner
               title="Processing image..."
-              message="Analyzing Image... Your image is being processed by the CNN model."
+              message={statusMessage || 'Analyzing Image... Your image is being processed by the CNN model.'}
             />
           </div>
         )}

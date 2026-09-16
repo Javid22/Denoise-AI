@@ -56,6 +56,7 @@ export default function NoiseSimulator() {
   const [status, setStatus] = useState('idle') // idle | processing | done
   const [resultUrl, setResultUrl] = useState(null)
   const [noisySnapshotUrl, setNoisySnapshotUrl] = useState(null)
+  const [statusMessage, setStatusMessage] = useState(null)
 
   const cleanImgRef = useRef(null) // HTMLImageElement, full resolution
   const canvasRef = useRef(null) // visible noisy-preview canvas
@@ -140,6 +141,7 @@ export default function NoiseSimulator() {
     if (!canvas) return
 
     setError(null)
+    setStatusMessage(null)
     setStatus('processing')
 
     canvas.toBlob(async (blob) => {
@@ -155,7 +157,7 @@ export default function NoiseSimulator() {
       setNoisySnapshotUrl(snapshotUrl)
 
       try {
-        const url = await denoiseImage(blob, 'noisy-image.png')
+        const url = await denoiseImage(blob, 'noisy-image.png', setStatusMessage)
         if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current)
         resultUrlRef.current = url
         setResultUrl(url)
@@ -163,6 +165,8 @@ export default function NoiseSimulator() {
       } catch (err) {
         setError(err.message || 'Something went wrong while processing the image.')
         setStatus('idle')
+      } finally {
+        setStatusMessage(null)
       }
     }, 'image/png')
   }
@@ -302,7 +306,7 @@ export default function NoiseSimulator() {
           <div className="card fade-in" style={{ marginTop: 24 }}>
             <LoadingSpinner
               title="Processing image..."
-              message="Your artificially noisy image is being processed by the CNN model."
+              message={statusMessage || 'Your artificially noisy image is being processed by the CNN model.'}
             />
           </div>
         )}
